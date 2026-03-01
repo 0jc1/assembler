@@ -1,5 +1,5 @@
 # ARM assembler
 
-My ARMv7 assembler (32-bit ARM) written in Golang. 
+My ARMv7 assembler in Thumb mode (16-bit) written in Golang. 
 
 Not all instructions are implemented.
