@@ -6,10 +6,12 @@ import (
 	"io"
 	"io/ioutil"
 	"fmt"
+	"strings"
 )
 
 type Lexer struct {
     input        string
+	tokens 		 []Token
     position     int
     readPosition int
     ch           byte
@@ -67,6 +69,24 @@ func New(r io.Reader) *Lexer {
 
 // }
 
-func (l *Lexer) AllTokens()  {
+func (l *Lexer) ScanToken(token string) { 
 
+	switch token {
+	case "hello":
+		fmt.Println("HELLLOOooo")
+		l.tokens = append(l.tokens, Token{Type: TokenType(EOF), Literal: ""})
+	default:
+		fmt.Println("unknown token")
+	}
+}
+
+func (l *Lexer) ScanTokens() []Token {
+	words := strings.Fields(l.input)
+
+	for _, word := range words {
+		//fmt.Println(i, word)
+		l.ScanToken(word)
+	}
+
+	return nil
 }

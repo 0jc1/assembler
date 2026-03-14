@@ -3,7 +3,6 @@ package main
 import (
     "fmt"
     "os"
-
     "assembler/internal/lexer"
 )
 
@@ -25,7 +24,7 @@ func main() {
     //p := parser.New()
     //e := encoder.New()
 
-    l.AllTokens()
+    l.ScanTokens()
 
     //tokens := lexer.AllTokens(file)
 
