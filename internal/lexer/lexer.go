@@ -126,8 +126,11 @@ func isIdent(s string) bool {
 	}
 
 	// remaining characters
-	for _, r := range runes[1:] {
+	for i, r := range runes[1:] {
 		if !(unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_') {
+			if (r == ':' && i+1 == len(runes)-1) {
+				continue
+			}
 			return false
 		}
 	}
@@ -168,7 +171,7 @@ func (l *Lexer) ScanToken(token string) {
 	case isDirective(token):
 		l.CreateToken(DIRECTIVE, token)
 	default:
-		fmt.Println("unknown token")
+		fmt.Println("unknown token", token)
 	}
 }
 
