@@ -6,12 +6,13 @@ import (
 	"assembler/internal/lexer"
 	"fmt"
 	"strings"
+	"strconv"
 )
 
 type Parser struct {
 	tokens []lexer.Token
 	pos    int
-	line   int 
+	line   int
 }
 
 type Program struct {
@@ -31,24 +32,88 @@ const (
 )
 
 var InstrFormat map[string]FormatType = map[string]FormatType{
-	"add": R,
-	"sub": R,
-	"and": R,
+	// R-type
+	"add":  R,
+	"sub":  R,
+	"and":  R,
+	"or":   R,
+	"xor":  R,
+	"sll":  R,
+	"srl":  R,
+	"sra":  R,
+	"slt":  R,
+	"sltu": R,
+	"mul":  R,
+	"div":  R,
+	"rem":  R,
 
-	"addi": I, 
-	"lw": I, 
-	"jalr": I, 
-	"li": I,
+	// I-type
+	"addi":   I,
+	"andi":   I,
+	"ori":    I,
+	"xori":   I,
+	"slli":   I,
+	"srli":   I,
+	"srai":   I,
+	"slti":   I,
+	"sltiu":  I,
+	"lw":     I,
+	"lh":     I,
+	"lhu":    I,
+	"lb":     I,
+	"lbu":    I,
+	"jalr":   I,
+	"ecall":  I,
+	"ebreak": I,
 
-	"sw": S, 
-	"sb": S, 
+	// S-type
+	"sw": S,
+	"sh": S,
+	"sb": S,
 
-	"beq": B,
-	"bne": B,
-	"lui": U,
+	// B-type
+	"beq":  B,
+	"bne":  B,
+	"blt":  B,
+	"bltu": B,
+	"bge":  B,
+	"bgeu": B,
+
+	// U-type
+	"lui":   U,
 	"auipc": U,
 
+	// J-type
 	"jal": J,
+
+	// Pseudoinstructions
+	// these are mapped to the format of
+	// the real instructions they expand to
+	"li":   I,
+	"mv":   R,
+	"nop":  I,
+	"neg":  R,
+	"not":  I,
+	"j":    J,
+	"jr":   I,
+	"ret":  I,
+	"call": J,
+	"tail": J,
+	"la":   U,
+	"bgt":  B,
+	"ble":  B,
+	"bgtu": B,
+	"bleu": B,
+	"beqz": B,
+	"bnez": B,
+	"bltz": B,
+	"bgez": B,
+	"blez": B,
+	"bgtz": B,
+	"seqz": I,
+	"snez": R,
+	"sltz": R,
+	"sgtz": R,
 }
 
 type Instruction struct {
@@ -80,7 +145,7 @@ var LocationCounter int = 0
 
 func isLabel(token lexer.Token) bool {
 	if token.Type == lexer.IDENT {
-		if strings.HasSuffix(token.Literal,":") {
+		if strings.HasSuffix(token.Literal, ":") {
 			return true
 		}
 	}
@@ -105,10 +170,62 @@ func (p *Parser) ParseOperands(format FormatType) []Operand {
 				Name: token.Literal,
 			})
 		}
-	case I: 
-	case S: 
+	case I:
+
+		var rd lexer.Token
+		var rs1 lexer.Token
+		var imm lexer.Token
+
+		p.Next()
+		rd = p.GetToken()
+
+		if rd.Type != lexer.REGISTER {
+			panic("Parser failed. rd is not a register")
+		}
+
+		p.Next()
+
+		token := p.GetToken()
+		if token.Type == lexer.NUMBER {
+			imm = token
+			p.Next() // skip paren
+			p.Next()
+			rs1 = p.GetToken()
+			if rs1.Type != lexer.REGISTER {
+				panic("rs1 is not a register")
+			}
+			p.Next() // skip paren
+		} else if token.Type == lexer.REGISTER {
+			rs1 = token
+			p.Next()
+			imm = p.GetToken()
+			if imm.Type != lexer.NUMBER {
+				panic("imm is not a number")
+			}
+		}
+
+		val, err := strconv.ParseInt(imm.Literal, 10, 32)
+		if err != nil {
+			panic(fmt.Sprintf("invalid immediate: %s", imm.Literal))
+		}
+
+		val2 := int32(val)
+
+		args = append(args,
+			Register{
+				Name: rd.Literal,
+			},
+			Register{
+				Name: rs1.Literal,
+			},
+			Immediate{
+				Value: val2,
+			},
+		)
+
+	case S:
 	case B:
-	case U: 
+	case U:
 	case J:
 
 	}
@@ -117,7 +234,7 @@ func (p *Parser) ParseOperands(format FormatType) []Operand {
 }
 
 func (p *Parser) ParseInstruction(token lexer.Token) (Instruction, error) {
-	var op string 
+	var op string
 	var format FormatType
 	var args []Operand
 
@@ -130,8 +247,8 @@ func (p *Parser) ParseInstruction(token lexer.Token) (Instruction, error) {
 	}
 
 	return Instruction{
-		Op: op,
-		Args: args,
+		Op:     op,
+		Args:   args,
 		Format: format,
 	}, nil
 }
@@ -146,16 +263,15 @@ func (p *Parser) GetToken() lexer.Token {
 }
 
 func (p *Parser) Next() {
-	p.pos += 1
+	p.pos++
 }
 
 func (p *Parser) Prev() {
-	p.pos -= 1
+	p.pos--
 }
 
-
 func (p *Parser) Parse(tokens []lexer.Token) *Program {
-	p.tokens = tokens 
+	p.tokens = tokens
 
 	prog := &Program{
 		Instructions: []Instruction{},
@@ -168,7 +284,7 @@ func (p *Parser) Parse(tokens []lexer.Token) *Program {
 			prog.Labels[token.Literal] = LocationCounter
 
 		} else if token.Type == lexer.NEWLINE {
-			p.line += 1 
+			p.line++
 		} else {
 			instr, err := p.ParseInstruction(token)
 
