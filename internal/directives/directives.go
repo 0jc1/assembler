@@ -1,3 +1,3 @@
-// Handles .data, .text, .equ, .macro
+// Handles .data, .text, .equ, .macro, .word, .byte, .string
 
 package directives
