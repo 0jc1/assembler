@@ -4,6 +4,7 @@ import (
     "fmt"
     "os"
     "assembler/internal/lexer"
+    "assembler/internal/parser"
 )
 
 func main() {
@@ -21,14 +22,12 @@ func main() {
     defer file.Close()
 
     l := lexer.New(file)
-    //p := parser.New()
+    p := parser.New()
     //e := encoder.New()
 
-    l.ScanTokens()
-
-    //tokens := lexer.AllTokens(file)
-
-    //ir := parser.Parse(tokens)
+    tokens := l.ScanTokens()
+    ir := p.Parse(tokens)
+    fmt.Println(ir)
     //machineCode := encoder.Encode(ir)
 
     // write machine code to file

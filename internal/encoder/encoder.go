@@ -2,6 +2,11 @@
 
  package encoder
 
-// type Encoder struct {
+type Encoder struct {
 	
-// }
+}
+
+func New() *Encoder {
+	p := &Encoder{}
+	return p
+}

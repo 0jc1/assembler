@@ -85,15 +85,6 @@ var registers = map[string]int{
 	"x31":31, "t6":31,
 }
 
-
-// func (l *Lexer) NextToken() Token {
-
-// }
-
-// func (l *Lexer) AllTokens() []Token {
-
-// }
-
 func isRegister(token string) bool {
 	token = strings.TrimSuffix(token, ",")
 	_, ok := registers[token]
@@ -151,7 +142,6 @@ func New(r io.Reader) *Lexer {
 		column: 0,
 	}
 
-	//l.readChar() // initialize first character
 	return l
 }
 
@@ -171,7 +161,7 @@ func (l *Lexer) ScanToken(token string) {
 	case isDirective(token):
 		l.CreateToken(DIRECTIVE, token)
 	default:
-		fmt.Println("unknown token", token)
+		fmt.Println("Unknown token", token)
 	}
 }
 
@@ -179,7 +169,6 @@ func (l *Lexer) ScanTokens() []Token {
 	// lol
 	l.input = strings.ReplaceAll(l.input, "(", " ( ")
 	l.input = strings.ReplaceAll(l.input, ")", " ) ")
-
 	lines := strings.Split(l.input, "\n") 
 
 	for _, line := range lines {
@@ -192,19 +181,20 @@ func (l *Lexer) ScanTokens() []Token {
 			if word[0] == '#' { 
 				break 
 			}
-
-			//fmt.Println(word)
+			
 			l.ScanToken(word)
 		}
 		l.CreateToken(NEWLINE, "newline")
 	}
-
-	fmt.Println(l.tokens)
-	return nil
+	return l.tokens
 }
 
 func (l *Lexer) CreateToken(tType TokenType, literal string) {
 	var t Token 
 	t = Token{Type: TokenType(tType), Literal: literal}
 	l.tokens = append(l.tokens, t)
+}
+
+func (l *Lexer) Tokens() []Token {
+	return l.tokens
 }
