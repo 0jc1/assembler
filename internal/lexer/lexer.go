@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"fmt"
 	"strings"
+	"strconv"
+	"unicode"
 )
 
 type Lexer struct {
@@ -50,14 +52,14 @@ var registers = map[string]int{
 	"x3":3, "gp":3,
 	"x4":4, "tp":4,
 
-	"x5":5, "t0":5,
+	"x5":5, "t0":5, //temp 
 	"x6":6, "t1":6,
 	"x7":7, "t2":7,
 
 	"x8":8, "s0":8, "fp":8,
 	"x9":9, "s1":9,
 
-	"x10":10, "a0":10,
+	"x10":10, "a0":10, // args 
 	"x11":11, "a1":11,
 	"x12":12, "a2":12,
 	"x13":13, "a3":13,
@@ -66,7 +68,7 @@ var registers = map[string]int{
 	"x16":16, "a6":16,
 	"x17":17, "a7":17,
 
-	"x18":18, "s2":18,
+	"x18":18, "s2":18, //saved 
 	"x19":19, "s3":19,
 	"x20":20, "s4":20,
 	"x21":21, "s5":21,
@@ -109,8 +111,9 @@ func New(r io.Reader) *Lexer {
 
 // }
 
-func CreateToken(tType TokenType, literal string) Token {
-	return Token{Type: TokenType(tType), Literal: literal}
+func (l *Lexer) CreateToken(tType TokenType, literal string) {
+	t := Token{Type: TokenType(tType), Literal: literal}
+	l.tokens = append(l.tokens, t)
 }
 
 func isRegister(token string) bool {
@@ -119,24 +122,76 @@ func isRegister(token string) bool {
 	return ok
 }
 
+func isImmediate(s string) bool {
+	if strings.HasPrefix(s, "#") {
+		s = strings.TrimPrefix(s, "#")
+		if isNumber(s) {
+			return true
+		}
+	}
+	return false
+}
+
+func isNumber(s string) bool {
+
+	_, err := strconv.ParseInt(s, 0, 32)
+	return err == nil
+}
+
+func isIdent(s string) bool {
+	if len(s) == 0 { 
+		return false
+	}
+
+	runes := []rune(s)
+
+	// first character
+	if !(unicode.IsLetter(runes[0]) || runes[0] == '_') {
+		return false
+	}
+
+	// remaining characters
+	for _, r := range runes[1:] {
+		if !(unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_') {
+			return false
+		}
+	}
+	return true
+}
+
 func (l *Lexer) ScanToken(token string) { 
 
 	switch {
 	case isRegister(token):
-		fmt.Println(token)
-		l.tokens = append(l.tokens, CreateToken(REGISTER, token))
+		l.CreateToken(REGISTER, token)
+	case isNumber(token): 
+		l.CreateToken(NUMBER, token)
+	case isImmediate(token): 
+		l.CreateToken(IMMEDIATE, token)
+	case isIdent(token):
+		l.CreateToken(IDENT, token)
+	case token == "\n":
+		l.CreateToken(NEWLINE, token)
 	default:
 		fmt.Println("unknown token")
 	}
 }
 
 func (l *Lexer) ScanTokens() []Token {
-	words := strings.Fields(l.input)
+	lines := strings.Split(l.input, "\n") 
 
-	for _, word := range words {
-		//fmt.Println(i, word)
-		l.ScanToken(word)
+	for _, line := range lines {
+		words := strings.Fields(line)
+		for _, word := range words {
+			word = strings.ToLower(word)
+			//fmt.Println(word)
+			l.ScanToken(word)
+		}
+		//l.ScanToken(word)
+		l.CreateToken(NEWLINE, "newline")
 	}
+
+	fmt.Println(l.tokens)
 
 	return nil
 }
