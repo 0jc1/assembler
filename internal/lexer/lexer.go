@@ -29,12 +29,12 @@ const (
 
 	IDENT      // labels, mnemonics
 	REGISTER   // R0, R1, R15
-	IMMEDIATE  // #123, #0xFF
 	NUMBER     // 123, 0xFF
 	COMMA      // ,
 	COLON      // :
-	LBRACKET   // [
-	RBRACKET   // ]
+
+	LPAREN      // (
+	RPAREN      // )
 	DIRECTIVE  // .text, .data
 	NEWLINE
 )
@@ -100,15 +100,6 @@ func isRegister(token string) bool {
 	return ok
 }
 
-func isImmediate(s string) bool {
-	if strings.HasPrefix(s, "#") {
-		s = strings.TrimPrefix(s, "#")
-		if isNumber(s) {
-			return true
-		}
-	}
-	return false
-}
 
 func isNumber(s string) bool {
 	_, err := strconv.ParseInt(s, 0, 32)
@@ -168,8 +159,10 @@ func (l *Lexer) ScanToken(token string) {
 		l.CreateToken(REGISTER, token)
 	case isNumber(token): 
 		l.CreateToken(NUMBER, token)
-	case isImmediate(token): 
-		l.CreateToken(IMMEDIATE, token)
+	case token == "(": 
+		l.CreateToken(LPAREN, "(")
+	case token == ")": 
+		l.CreateToken(RPAREN,")")
 	case isIdent(token):
 		l.CreateToken(IDENT, token)
 	case isDirective(token):
@@ -180,6 +173,10 @@ func (l *Lexer) ScanToken(token string) {
 }
 
 func (l *Lexer) ScanTokens() []Token {
+	// lol
+	l.input = strings.ReplaceAll(l.input, "(", " ( ")
+	l.input = strings.ReplaceAll(l.input, ")", " ) ")
+
 	lines := strings.Split(l.input, "\n") 
 
 	for _, line := range lines {
@@ -204,6 +201,7 @@ func (l *Lexer) ScanTokens() []Token {
 }
 
 func (l *Lexer) CreateToken(tType TokenType, literal string) {
-	t := Token{Type: TokenType(tType), Literal: literal}
+	var t Token 
+	t = Token{Type: TokenType(tType), Literal: literal}
 	l.tokens = append(l.tokens, t)
 }

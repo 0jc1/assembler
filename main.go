@@ -9,14 +9,14 @@ import (
 func main() {
     if len(os.Args) < 2 {
         fmt.Println("Usage: go run main.go <source.asm>")
-        return
+        os.Exit(1)
     }
     source := os.Args[1]
-
     file, err := os.Open(source)
 
     if err != nil {
-        fmt.Println("error opening file ", source)
+        fmt.Println("Error opening file", source)
+        os.Exit(1) 
     }
     defer file.Close()
 

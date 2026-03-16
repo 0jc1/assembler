@@ -1,4 +1,5 @@
 main:
+    lw t0, 4(sp)
     li a0 50        # first argument
     li a1 7         # second argument
 
