@@ -85,23 +85,6 @@ var registers = map[string]int{
 	"x31":31, "t6":31,
 }
 
-func New(r io.Reader) *Lexer {
-	data, err := ioutil.ReadAll(r)
-	if err != nil {
-		return nil
-	}
-
-	fmt.Println("new")
-
-	l := &Lexer{
-		input: string(data),
-		line:  1,
-		column: 0,
-	}
-
-	//l.readChar() // initialize first character
-	return l
-}
 
 // func (l *Lexer) NextToken() Token {
 
@@ -110,11 +93,6 @@ func New(r io.Reader) *Lexer {
 // func (l *Lexer) AllTokens() []Token {
 
 // }
-
-func (l *Lexer) CreateToken(tType TokenType, literal string) {
-	t := Token{Type: TokenType(tType), Literal: literal}
-	l.tokens = append(l.tokens, t)
-}
 
 func isRegister(token string) bool {
 	token = strings.TrimSuffix(token, ",")
@@ -133,9 +111,15 @@ func isImmediate(s string) bool {
 }
 
 func isNumber(s string) bool {
-
 	_, err := strconv.ParseInt(s, 0, 32)
 	return err == nil
+}
+
+func isDirective(s string) bool {
+	if strings.HasPrefix(s, ".") {
+		return true 
+	}
+	return false
 }
 
 func isIdent(s string) bool {
@@ -159,6 +143,24 @@ func isIdent(s string) bool {
 	return true
 }
 
+func New(r io.Reader) *Lexer {
+	data, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil
+	}
+
+	fmt.Println("new lexer")
+
+	l := &Lexer{
+		input: string(data),
+		line:  1,
+		column: 0,
+	}
+
+	//l.readChar() // initialize first character
+	return l
+}
+
 func (l *Lexer) ScanToken(token string) { 
 
 	switch {
@@ -170,8 +172,8 @@ func (l *Lexer) ScanToken(token string) {
 		l.CreateToken(IMMEDIATE, token)
 	case isIdent(token):
 		l.CreateToken(IDENT, token)
-	case token == "\n":
-		l.CreateToken(NEWLINE, token)
+	case isDirective(token):
+		l.CreateToken(DIRECTIVE, token)
 	default:
 		fmt.Println("unknown token")
 	}
@@ -184,14 +186,24 @@ func (l *Lexer) ScanTokens() []Token {
 		words := strings.Fields(line)
 		for _, word := range words {
 			word = strings.ToLower(word)
+			word = strings.TrimSuffix(word, ",")
+
+			// if comment then go to next line
+			if word[0] == '#' { 
+				break 
+			}
+
 			//fmt.Println(word)
 			l.ScanToken(word)
 		}
-		//l.ScanToken(word)
 		l.CreateToken(NEWLINE, "newline")
 	}
 
 	fmt.Println(l.tokens)
-
 	return nil
+}
+
+func (l *Lexer) CreateToken(tType TokenType, literal string) {
+	t := Token{Type: TokenType(tType), Literal: literal}
+	l.tokens = append(l.tokens, t)
 }
