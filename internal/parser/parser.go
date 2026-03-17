@@ -11,6 +11,7 @@ import (
 
 type Parser struct {
 	tokens []lexer.Token
+	prog   *Program
 	pos    int
 	line   int
 }
@@ -19,6 +20,14 @@ type Program struct {
 	Instructions []Instruction
 	Labels       map[string]int
 }
+
+type BackpatchEntry struct {
+    InstrIndex int     // which instruction needs fixing
+    Label      string  // what label it's waiting for
+}
+
+// backpatch list
+var backpatch []BackpatchEntry
 
 type FormatType int
 
@@ -89,17 +98,12 @@ var InstrFormat map[string]FormatType = map[string]FormatType{
 	// Pseudoinstructions
 	// these are mapped to the format of
 	// the real instructions they expand to
-	"li":   I,
-	"mv":   R,
-	"nop":  I,
-	"neg":  R,
-	"not":  I,
 	"j":    J,
-	"jr":   I,
-	"ret":  I,
-	"call": J,
+	
 	"tail": J,
+	"call": J,
 	"la":   U,
+	
 	"bgt":  B,
 	"ble":  B,
 	"bgtu": B,
@@ -110,7 +114,16 @@ var InstrFormat map[string]FormatType = map[string]FormatType{
 	"bgez": B,
 	"blez": B,
 	"bgtz": B,
+	
+	"not":  I,
 	"seqz": I,
+	"jr":   I,
+	"ret":  I,
+	"li":   I,
+	"nop":  I,
+	
+	"mv":   R,
+	"neg":  R,
 	"snez": R,
 	"sltz": R,
 	"sgtz": R,
@@ -290,7 +303,15 @@ func (p *Parser) ParseOperands(format FormatType) []Operand {
 		} else {
 			panic("last arg should be identifer")
 		}
-	case U: 
+
+		if _, ok := p.prog.Labels[ident.Literal]; !ok {
+			// label not defined yet — emit placeholder and record it
+			backpatch = append(backpatch, BackpatchEntry{
+				InstrIndex: LocationCounter,
+				Label:      ident.Literal,
+			})
+		}
+	case U: //upper
 		var rd lexer.Token
 		var imm lexer.Token
 
@@ -342,6 +363,14 @@ func (p *Parser) ParseOperands(format FormatType) []Operand {
 			},
 		)
 
+		if _, ok := p.prog.Labels[ident.Literal]; !ok {
+			// label not defined yet — emit placeholder and record it
+			backpatch = append(backpatch, BackpatchEntry{
+				InstrIndex: LocationCounter,
+				Label:      ident.Literal,
+			})
+		}
+
 	}
 
 	return args
@@ -385,12 +414,13 @@ func (p *Parser) Prev() {
 }
 
 func (p *Parser) Parse(tokens []lexer.Token) *Program {
-	p.tokens = tokens
-
 	prog := &Program{
 		Instructions: []Instruction{},
 		Labels:       make(map[string]int),
 	}
+
+	p.tokens = tokens
+	p.prog = prog
 
 	for p.pos < len(tokens) {
 		token := p.GetToken()
@@ -404,6 +434,7 @@ func (p *Parser) Parse(tokens []lexer.Token) *Program {
 
 			if err == nil {
 				prog.Instructions = append(prog.Instructions, instr)
+				LocationCounter++
 			}
 
 			//fmt.Println(instr)
@@ -412,6 +443,20 @@ func (p *Parser) Parse(tokens []lexer.Token) *Program {
 	}
 
 	// run the backpatch list
+	for _, entry := range backpatch {
+		labelAddr, ok := prog.Labels[entry.Label]
+		if !ok {
+			panic(fmt.Sprintf("undefined label: %s", entry.Label))
+		}
+
+		// compute offset (in bytes, each instruction is 4 bytes)
+		offset := (labelAddr - entry.InstrIndex) * 4
+		
+		// re-encode the instruction with the correct offset
+		prog.Instructions[entry.InstrIndex] = reEncode(prog.Instructions[entry.InstrIndex], offset)
+	}
+
+
 	// check for undefined symbols
 
 	return prog
