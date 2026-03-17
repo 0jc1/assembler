@@ -5,8 +5,8 @@ package parser
 import (
 	"assembler/internal/lexer"
 	"fmt"
-	"strings"
 	"strconv"
+	"strings"
 )
 
 type Parser struct {
@@ -157,7 +157,7 @@ func (p *Parser) ParseOperands(format FormatType) []Operand {
 	var args []Operand
 
 	switch format {
-	case R:
+	case R: //register-register
 		for range 3 {
 			p.Next()
 			token := p.GetToken()
@@ -215,18 +215,132 @@ func (p *Parser) ParseOperands(format FormatType) []Operand {
 			Register{
 				Name: rd.Literal,
 			},
-			Register{
-				Name: rs1.Literal,
-			},
-			Immediate{
-				Value: val2,
+			Memory{
+				Offset: val2,
+				Base: rs1.Literal,
 			},
 		)
 
 	case S:
-	case B:
-	case U:
-	case J:
+
+		var rd lexer.Token
+		var rs1 lexer.Token
+		var imm lexer.Token
+
+		p.Next()
+		rd = p.GetToken()
+
+		if rd.Type != lexer.REGISTER {
+			panic("Parser failed. rd is not a register")
+		}
+
+		p.Next()
+
+		token := p.GetToken()
+		if token.Type == lexer.NUMBER {
+			imm = token
+			p.Next() // skip paren
+			p.Next()
+			rs1 = p.GetToken()
+			if rs1.Type != lexer.REGISTER {
+				panic("rs1 is not a register")
+			}
+			p.Next() // skip paren
+		} else {
+			panic("expected number for S-type")
+		}
+
+		val, err := strconv.ParseInt(imm.Literal, 10, 32)
+		if err != nil {
+			panic(fmt.Sprintf("invalid immediate: %s", imm.Literal))
+		}
+
+		val2 := int32(val)
+
+		args = append(args,
+			Register{
+				Name: rd.Literal,
+			},
+			Memory{
+				Offset: val2,
+				Base: rs1.Literal,
+			},
+		)
+
+	case B: // branch
+		for range 2 {
+			p.Next()
+			token := p.GetToken()
+
+			if token.Type != lexer.REGISTER {
+				panic(fmt.Sprintf("Parser failed. B-type needs 2 regs, line %d", p.line))
+			}
+
+			args = append(args, Register{
+				Name: token.Literal,
+			})
+		}
+
+		p.Next()
+		ident := p.GetToken()
+		if ident.Type == lexer.IDENT {
+			args = append(args, LabelRef{
+				Name: ident.Literal,
+			})
+		} else {
+			panic("last arg should be identifer")
+		}
+	case U: 
+		var rd lexer.Token
+		var imm lexer.Token
+
+		p.Next()
+		rd = p.GetToken()
+
+		p.Next()
+		imm = p.GetToken()
+
+		val, err := strconv.ParseInt(imm.Literal, 10, 32)
+		if err != nil {
+			panic(fmt.Sprintf("invalid immediate: %s", imm.Literal))
+		}
+		val2 := int32(val)
+
+
+		args = append(args, 
+			Register{
+				Name: rd.Literal,
+			},
+			Immediate {
+				Value: val2,
+			},
+		)
+
+	case J: //jump
+		var rd lexer.Token
+		var imm lexer.Token
+
+		p.Next()
+		rd = p.GetToken()
+
+		p.Next()
+		imm = p.GetToken()
+
+		val, err := strconv.ParseInt(imm.Literal, 10, 32)
+		if err != nil {
+			panic(fmt.Sprintf("invalid immediate: %s", imm.Literal))
+		}
+		val2 := int32(val)
+
+
+		args = append(args, 
+			Register{
+				Name: rd.Literal,
+			},
+			Memory {
+				Offset: val2,
+			},
+		)
 
 	}
 
