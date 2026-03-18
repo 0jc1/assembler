@@ -184,7 +184,6 @@ func (p *Parser) ParseOperands(format FormatType) []Operand {
 			})
 		}
 	case I:
-
 		var rd lexer.Token
 		var rs1 lexer.Token
 		var imm lexer.Token
@@ -222,20 +221,20 @@ func (p *Parser) ParseOperands(format FormatType) []Operand {
 			panic(fmt.Sprintf("invalid immediate: %s", imm.Literal))
 		}
 
-		val2 := int32(val)
 
 		args = append(args,
 			Register{
 				Name: rd.Literal,
 			},
-			Memory{
-				Offset: val2,
-				Base: rs1.Literal,
+			Immediate{
+				Value: int32(val),
+			},
+			Register{
+				Name: rs1.Literal,
 			},
 		)
 
 	case S:
-
 		var rd lexer.Token
 		var rs1 lexer.Token
 		var imm lexer.Token
@@ -286,7 +285,7 @@ func (p *Parser) ParseOperands(format FormatType) []Operand {
 			token := p.GetToken()
 
 			if token.Type != lexer.REGISTER {
-				panic(fmt.Sprintf("Parser failed. B-type needs 2 regs, line %d", p.line))
+				panic(fmt.Sprintf("Parser failed. R-type needs 3 regs, line %d", p.line))
 			}
 
 			args = append(args, Register{
@@ -296,11 +295,7 @@ func (p *Parser) ParseOperands(format FormatType) []Operand {
 
 		p.Next()
 		ident := p.GetToken()
-		if ident.Type == lexer.IDENT {
-			args = append(args, LabelRef{
-				Name: ident.Literal,
-			})
-		} else {
+		if ident.Type != lexer.IDENT {
 			panic("last arg should be identifer")
 		}
 
@@ -309,6 +304,12 @@ func (p *Parser) ParseOperands(format FormatType) []Operand {
 			backpatch = append(backpatch, BackpatchEntry{
 				InstrIndex: LocationCounter,
 				Label:      ident.Literal,
+			})
+			// adds the mem address when running the backpatch list 
+		} else {	
+			offset := int32(p.prog.Labels[ident.Literal]) * 4			
+			args = append(args, Memory{
+				Offset: offset,
 			})
 		}
 	case U: //upper
@@ -362,17 +363,7 @@ func (p *Parser) ParseOperands(format FormatType) []Operand {
 				Offset: val2,
 			},
 		)
-
-		if _, ok := p.prog.Labels[ident.Literal]; !ok {
-			// label not defined yet — emit placeholder and record it
-			backpatch = append(backpatch, BackpatchEntry{
-				InstrIndex: LocationCounter,
-				Label:      ident.Literal,
-			})
-		}
-
 	}
-
 	return args
 }
 
@@ -422,10 +413,12 @@ func (p *Parser) Parse(tokens []lexer.Token) *Program {
 	p.tokens = tokens
 	p.prog = prog
 
+	// parse the tokens
 	for p.pos < len(tokens) {
 		token := p.GetToken()
 		if isLabel(token) {
-			prog.Labels[token.Literal] = LocationCounter
+			label, _ := strings.CutSuffix(token.Literal, ":")
+			prog.Labels[label] = LocationCounter
 
 		} else if token.Type == lexer.NEWLINE {
 			p.line++
@@ -434,7 +427,7 @@ func (p *Parser) Parse(tokens []lexer.Token) *Program {
 
 			if err == nil {
 				prog.Instructions = append(prog.Instructions, instr)
-				LocationCounter++
+				LocationCounter += 1
 			}
 
 			//fmt.Println(instr)
@@ -450,14 +443,13 @@ func (p *Parser) Parse(tokens []lexer.Token) *Program {
 		}
 
 		// compute offset (in bytes, each instruction is 4 bytes)
-		offset := (labelAddr - entry.InstrIndex) * 4
+		offset := int32((labelAddr) * 4)
 		
 		// re-encode the instruction with the correct offset
-		prog.Instructions[entry.InstrIndex] = reEncode(prog.Instructions[entry.InstrIndex], offset)
+		prog.Instructions[entry.InstrIndex].Args = append(prog.Instructions[entry.InstrIndex].Args, Memory{Offset: offset})
 	}
 
-
-	// check for undefined symbols
+	// TODO check for undefined symbols
 
 	return prog
 }

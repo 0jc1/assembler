@@ -45,7 +45,7 @@ type Token struct {
   //  Position Position
 }
 
-var registers = map[string]int{
+var Registers = map[string]uint32{
 	"x0":0, "zero":0,
 	"x1":1, "ra":1,
 	"x2":2, "sp":2,
@@ -87,7 +87,7 @@ var registers = map[string]int{
 
 func isRegister(token string) bool {
 	token = strings.TrimSuffix(token, ",")
-	_, ok := registers[token]
+	_, ok := Registers[token]
 	return ok
 }
 

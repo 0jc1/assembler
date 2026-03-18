@@ -5,6 +5,7 @@ import (
     "os"
     "assembler/internal/lexer"
     "assembler/internal/parser"
+    "assembler/internal/encoder"
 )
 
 func main() {
@@ -23,13 +24,15 @@ func main() {
 
     l := lexer.New(file)
     p := parser.New()
-    //e := encoder.New()
+    e := encoder.New()
 
     tokens := l.ScanTokens()
     ir := p.Parse(tokens)
     fmt.Println(ir)
-    //machineCode := encoder.Encode(ir)
+    machineCode := e.Encode(ir)
+    fmt.Println(machineCode)
 
     // write machine code to file
-    //encoder.WriteBinary(machineCode, "output.bin")
+    fmt.Println("Created output file output.bin")
+    e.WriteBinary(machineCode, "output.bin")
 }
